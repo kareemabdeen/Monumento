@@ -6,6 +6,11 @@ import 'package:monumento/utils/app_text_styles.dart';
 const defaultProfilePicture =
     "https://firebasestorage.googleapis.com/v0/b/monumento-277103.appspot.com/o/profilePictures%2Faccount_avatar_profile_user_icon%20.png?alt=media&token=672ef7b9-7f53-415f-8040-0c93c61e01b8";
 
+enum BackendProviders { Firebase, Supabase }
+
+//! Change it to supabase if you are working on migration.
+const kBackendProvider = BackendProviders.Firebase;
+
 class CustomTextField extends StatelessWidget {
   final TextEditingController controller;
   final String text;

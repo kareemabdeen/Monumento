@@ -1,9 +1,9 @@
 import 'dart:developer';
 import 'dart:io';
 
+import 'package:equatable/equatable.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:equatable/equatable.dart';
 import 'package:monumento/application/authentication/authentication_bloc.dart';
 import 'package:monumento/data/models/user_model.dart';
 import 'package:monumento/domain/repositories/authentication_repository.dart';
@@ -70,10 +70,15 @@ class LoginRegisterBloc extends Bloc<LoginRegisterEvent, LoginRegisterState> {
     try {
       emit(LoginRegisterLoading());
 
-      final user = await _authRepository.emailSignIn(
-        email: event.email,
-        password: event.password,
-      );
+      final user = kBackendProvider == BackendProviders.Supabase
+          ? await _authRepository.emailSignInWithSupabase(
+              email: event.email,
+              password: event.password,
+            )
+          : await _authRepository.emailSignIn(
+              email: event.email,
+              password: event.password,
+            );
       if (user != null) {
         _authenticationBloc.add(LoggedIn());
         log('User: $user');
@@ -132,13 +137,21 @@ class LoginRegisterBloc extends Bloc<LoginRegisterEvent, LoginRegisterState> {
         } else {
           url = defaultProfilePicture;
         }
-        final user = await _authRepository.signUp(
-            email: event.email,
-            name: event.name,
-            password: event.password,
-            status: event.status,
-            username: event.username,
-            profilePictureUrl: url);
+        final user = kBackendProvider == BackendProviders.Supabase
+            ? await _authRepository.signUpWithSupabase(
+                email: event.email,
+                password: event.password,
+                name: event.name,
+                status: event.status,
+                username: event.username,
+                profilePictureUrl: url)
+            : await _authRepository.signUp(
+                email: event.email,
+                name: event.name,
+                password: event.password,
+                status: event.status,
+                username: event.username,
+                profilePictureUrl: url);
         if (user != null) {
           emit(SignUpSuccess(user));
           _authenticationBloc.add(LoggedIn());

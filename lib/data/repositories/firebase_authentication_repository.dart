@@ -8,11 +8,12 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:monumento/data/models/user_model.dart';
 import 'package:monumento/domain/repositories/authentication_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 class FirebaseAuthenticationRepository implements AuthenticationRepository {
   final FirebaseAuth _firebaseAuth;
   final FirebaseFirestore _database;
-
+  final _supabase = supabase.Supabase.instance.client;
   FirebaseAuthenticationRepository(
       {FirebaseAuth? firebaseAuth,
       GoogleSignIn? googleSignin,
@@ -35,6 +36,35 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
     return UserModel.fromJson(userDocSnap.data() as Map<String, dynamic>);
   }
 
+  Future<UserModel?> emailSignInWithSupabase(
+      {required String email, required String password}) async {
+    try {
+      // Authenticate user with Supabase
+      final response = await _supabase.auth
+          .signInWithPassword(email: email, password: password);
+
+      // If authentication fails, return null
+      if (response.user == null) return null;
+
+      // Get user ID
+      final String userId = response.user!.id;
+
+      // Fetch user details from the "users" table in Supabase
+      final userData = await _supabase
+          .from('users')
+          .select()
+          .eq('uid', userId)
+          .single(); // Fetch single user record
+
+      // Convert JSON response to UserModel
+      return UserModel.fromJson(userData);
+    } on supabase.AuthException catch (e) {
+      // Handle authentication errors
+      log(e.message);
+      return null;
+    }
+  }
+
   @override
   Future<Map<String, dynamic>> signInWithGoogle() async {
     GoogleSignIn googleSignIn;
@@ -47,8 +77,8 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
         googleSignIn =
             GoogleSignIn(clientId: dotenv.env['GOOGLE_SIGNIN_APPLE_CLIENT_ID']);
       } else if (Platform.isAndroid) {
-        googleSignIn = GoogleSignIn(
-            serverClientId: dotenv.env['SERVER_CLIENT_ID']);
+        googleSignIn =
+            GoogleSignIn(serverClientId: dotenv.env['SERVER_CLIENT_ID']);
       } else {
         googleSignIn = GoogleSignIn();
       }
@@ -107,6 +137,43 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
   }
 
   @override
+  Future<UserModel?> signUpWithSupabase(
+      {required String email,
+      required String password,
+      required String name,
+      required String status,
+      required String username,
+      required String profilePictureUrl}) async {
+    final response = await _supabase.auth.signUp(
+      email: email,
+      password: password,
+      data: {
+        'name': name,
+        'status': status,
+        'username': username,
+        'profilepictureurl': profilePictureUrl,
+      },
+    );
+
+    final currentUser = response.user;
+
+    if (currentUser == null) {
+      throw Exception("Failed to create user");
+    }
+
+    final userDocSnap = await getOrCreateUserDocForEmailSignupWithSupabase(
+      status: status,
+      name: name,
+      username: username,
+      email: email,
+      profilePictureUrl: profilePictureUrl,
+      uid: currentUser.id,
+    );
+
+    return UserModel.fromJson(userDocSnap!);
+  }
+
+  @override
   Future<void> signOut() async {
     return await _firebaseAuth.signOut();
   }
@@ -151,6 +218,47 @@ class FirebaseAuthenticationRepository implements AuthenticationRepository {
       log("newPass: ${emailPassword.values.first}");
       await currentUser.updatePassword(emailPassword.values.first);
     }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getOrCreateUserDocForEmailSignupWithSupabase({
+    required String uid,
+    required String name,
+    String? status,
+    required String username,
+    required String email,
+    String? profilePictureUrl,
+  }) async {
+    // Check if user exists
+    final userDoc = await _supabase
+        .from("users")
+        .select()
+        .eq("uid", uid)
+        .maybeSingle(); // Get a single document if exists, otherwise return null
+
+    if (userDoc != null) {
+      return userDoc;
+    }
+
+    // Generate search parameters
+    List<String> searchParams = getSearchParams(name: name, userName: username);
+
+    // Insert new user
+    final response = await _supabase
+        .from("users")
+        .upsert({
+          'uid': uid,
+          'name': name,
+          'profilepictureurl': profilePictureUrl ?? "",
+          'email': email,
+          'status': status ?? "",
+          'username': username,
+          'searchparams': searchParams
+        })
+        .select()
+        .maybeSingle();
+
+    return response;
   }
 
   Future<DocumentSnapshot> getOrCreateUserDocForEmailSignup({

@@ -4,6 +4,27 @@ abstract interface class AuthenticationRepository {
   Future<UserModel?> emailSignIn(
       {required String email, required String password});
 
+  Future<UserModel?> emailSignInWithSupabase(
+      {required String email, required String password});
+
+  Future<UserModel?> signUpWithSupabase({
+    required String email,
+    required String password,
+    required String name,
+    required String status,
+    required String username,
+    required String profilePictureUrl,
+  });
+
+  Future<Map<String, dynamic>?> getOrCreateUserDocForEmailSignupWithSupabase({
+    required String uid,
+    required String email,
+    required String name,
+    String? status,
+    required String username,
+    String? profilePictureUrl,
+  });
+
   Future<Map<String, dynamic>> signInWithGoogle();
 
   Future<UserModel?> signUp({
@@ -35,6 +56,7 @@ abstract interface class AuthenticationRepository {
   });
 
   Future sendPasswordResetEmail({required String email});
-  
-  Future<void> updateEmailPassword({required Map<Object,dynamic> emailPassword});
+
+  Future<void> updateEmailPassword(
+      {required Map<Object, dynamic> emailPassword});
 }

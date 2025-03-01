@@ -12,7 +12,9 @@ import 'package:monumento/presentation/authentication/login_view.dart';
 import 'package:monumento/service_locator.dart';
 import 'package:monumento/utils/app_colors.dart';
 import 'package:monumento/utils/bloc_observer_logger.dart';
+import 'package:monumento/utils/constants.dart';
 import 'package:responsive_framework/responsive_framework.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'application/authentication/authentication_bloc.dart';
 import 'firebase_options.dart';
@@ -22,12 +24,19 @@ import 'router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   try {
     await dotenv.load(fileName: ".env");
   } catch (e) {
     debugPrint('Failed to load .env file: $e');
   }
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  kBackendProvider == BackendProviders.Firebase
+      ? await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform)
+      : await Supabase.initialize(
+          url: dotenv.env['SUPABASE_PROJECT_URL'] ?? '',
+          anonKey: dotenv.env['SUPABASE_API_KEY'] ?? '',
+        );
   setupLocator();
   Bloc.observer = BlocObserverLogger();
 
