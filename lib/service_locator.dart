@@ -1,3 +1,5 @@
+import 'package:appwrite/appwrite.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:monumento/application/authentication/authentication_bloc.dart';
 import 'package:monumento/application/authentication/login_register/login_register_bloc.dart';
@@ -10,13 +12,14 @@ import 'package:monumento/application/feed/new_post/new_post_bloc.dart';
 import 'package:monumento/application/feed/recommended_users/recommended_users_bloc.dart';
 import 'package:monumento/application/notifications/notifications_bloc.dart';
 import 'package:monumento/application/popular_monuments/bookmark_monuments/bookmark_monuments_bloc.dart';
-import 'package:monumento/application/popular_monuments/monument_checkin/monument_checkin_bloc.dart';
 import 'package:monumento/application/popular_monuments/monument_3d_model/monument_3d_model_bloc.dart';
-import 'package:monumento/application/profile/follow/follow_bloc.dart';
+import 'package:monumento/application/popular_monuments/monument_checkin/monument_checkin_bloc.dart';
 import 'package:monumento/application/popular_monuments/monument_details/monument_details_bloc.dart';
 import 'package:monumento/application/popular_monuments/popular_monuments_bloc.dart';
+import 'package:monumento/application/profile/follow/follow_bloc.dart';
 import 'package:monumento/application/profile/profile_posts/profile_posts_bloc.dart';
 import 'package:monumento/application/profile/update_profile/update_profile_bloc.dart';
+import 'package:monumento/data/repositories/appwrite_authentication_repository.dart';
 import 'package:monumento/data/repositories/firebase_monument_repository.dart';
 import 'package:monumento/data/repositories/firebase_social_repository.dart';
 import 'package:monumento/domain/repositories/authentication_repository.dart';
@@ -24,14 +27,24 @@ import 'package:monumento/domain/repositories/monument_repository.dart';
 import 'package:monumento/domain/repositories/social_repository.dart';
 
 import 'application/popular_monuments/nearby_places/nearby_places_bloc.dart';
-import 'data/repositories/firebase_authentication_repository.dart';
 
 final GetIt locator = GetIt.instance;
 
 void setupLocator() {
   // Register repositories
+  locator.registerLazySingleton(
+    () => Client()
+        .setEndpoint(
+          dotenv.env['APPWRITE_API_ENDPOINT'] ?? "https://cloud.appwrite.io/v1",
+        )
+        .setProject(dotenv.env['APPWRITE_PROJECT_ID']),
+  );
   locator.registerLazySingleton<AuthenticationRepository>(
-      () => FirebaseAuthenticationRepository());
+      () => AppwriteAuthenticationRepository(
+            account: Account(locator<Client>()),
+            database: Databases(locator<Client>()),
+          ));
+
   locator.registerLazySingleton<SocialRepository>(() =>
       FirebaseSocialRepository(
           authenticationRepository: locator<AuthenticationRepository>()));
@@ -71,7 +84,8 @@ void setupLocator() {
       () => BookmarkMonumentsBloc(locator<MonumentRepository>()));
   locator.registerLazySingleton(() => UpdateProfileBloc(
       locator<SocialRepository>(), locator<AuthenticationRepository>()));
-  locator.registerLazySingleton(() => Monument3dModelBloc(locator<MonumentRepository>()));
+  locator.registerLazySingleton(
+      () => Monument3dModelBloc(locator<MonumentRepository>()));
   locator.registerLazySingleton(
       () => NotificationsBloc(locator<SocialRepository>()));
   locator.registerLazySingleton(
